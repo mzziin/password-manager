@@ -1,8 +1,9 @@
-from flask import Flask, render_template, redirect, request
+from flask import Flask, render_template, redirect, request, url_for
 from models import db, User, Password
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from sqlalchemy.exc import SQLAlchemyError
+from cryptography.fernet import Fernet
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "admin@123"
@@ -12,8 +13,8 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 bcrypt = Bcrypt(app)
-
-
+key = Fernet.generate_key()
+fernet = Fernet(key)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login' 
@@ -25,18 +26,23 @@ def load_user(user_id):
     except User.DoesNotExist:
         return None
 
-@app.route("/")
-def index():
-    return redirect("/login")
 
-@app.route("/home")
+@app.route('/')
+@login_required
+def index():
+    return redirect(url_for("home"))
+
+@app.route('/home')
 @login_required
 def home():
-    user_id = current_user.user_id
-    user = User.query.filter_by(user_id=user_id).first()
-    return render_template("home.html", username = user.username)
+    pwd_data = {}
+    objects = [data for data in Password.query.filter_by(username=current_user.username).all()]
+    for data in objects:
+        pwd_data[data.service_name] = data.encrypted_password
+    return render_template("home.html", username = current_user.username, pwd_datas=pwd_data)
 
-@app.route("/login", methods=["POST", "GET"])
+
+@app.route('/login', methods=["POST", "GET"])
 def login():
     if request.method == "POST":
         username = request.form.get("username")
@@ -45,14 +51,14 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and bcrypt.check_password_hash(user.hashed_password, password):
             login_user(user)
-            return redirect("/home")
+            return redirect(url_for("home"))
         else:
             return "Invalid username or password", 401
 
     return render_template("login.html")
 
 
-@app.route("/register", methods=["GET", "POST"])
+@app.route('/register', methods=["GET", "POST"])
 def register():
     if request.method == "POST":
         username = request.form.get("username")
@@ -75,18 +81,39 @@ def register():
             new_user = User(username=username, email=email, hashed_password=pw_hash)
             db.session.add(new_user)
             db.session.commit()
-            return redirect("/login")
+            return redirect(url_for("login"))
         except SQLAlchemyError as e:
             db.session.rollback()
             return "Unexpected error", 500
 
     return render_template("register.html")
 
-@app.route("/logout")
+@app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    return redirect("/login")
+    return redirect(url_for("login"))
+
+
+@app.route("/create", methods=["POST, GET"])
+@login_required
+def create():
+    if request.method == "POST":
+        service_name = request.form.get("service_name")
+        password = request.form.get("password")
+        username = current_user.username
+        user_id =  current_user.user_id
+        enc_pass = fernet.encrypt(password.encode())
+
+        try:
+            new_pw = Password(user_id=user_id, service_name=service_name, encrypted_password=enc_pass, username=username)
+            db.session.add(new_pw)
+            db.session.commit()
+            return redirect(url_for("home"))
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            return "Unexpected error", 500
+        
 
 
 if __name__ == "__main__":

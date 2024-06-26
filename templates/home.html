@@ -5,4 +5,10 @@
 <h1>hello {{ username }}</h1>
 <a href="/logout">Logout</a>
 
+<ul>
+
+{% for key, value in pwd_datas.items() %}
+    <li>{{ key }} : {{ value }}</li>
+{% endfor %}
+</ul>
 {% endblock %}
