@@ -22,4 +22,4 @@ class Password(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
     service_name = db.Column(db.String(100), nullable=False)
     username = db.Column(db.String(100))
-    encrypted_password = db.Column(db.String, nullable=False)
+    encrypted_password = db.Column(db.LargeBinary, nullable=False)

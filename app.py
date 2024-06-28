@@ -3,7 +3,9 @@ from models import db, User, Password
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from sqlalchemy.exc import SQLAlchemyError
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
+from flask_migrate import Migrate
+import os
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "admin@123"
@@ -12,9 +14,27 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
+migrate = Migrate(app, db)
 bcrypt = Bcrypt(app)
-key = Fernet.generate_key()
+
+key_path = os.path.join(os.path.dirname(__file__), 'secret.key')
+
+def generate_key():
+    return Fernet.generate_key()
+
+def load_key():
+    if os.path.exists(key_path):
+        with open(key_path, 'rb') as key_file:
+            return key_file.read()
+    else:
+        key = generate_key()
+        with open(key_path, 'wb') as key_file:
+            key_file.write(key)
+        return key
+    
+key = load_key()
 fernet = Fernet(key)
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login' 
@@ -36,10 +56,17 @@ def index():
 @login_required
 def home():
     pwd_data = {}
-    objects = [data for data in Password.query.filter_by(username=current_user.username).all()]
+    objects = Password.query.filter_by(username=current_user.username).all()
+
     for data in objects:
-        pwd_data[data.service_name] = data.encrypted_password
-    return render_template("home.html", username = current_user.username, pwd_datas=pwd_data)
+        try:
+            decrypted_pwd = fernet.decrypt(data.encrypted_password)
+            pwd_data[data.password_id] = {data.service_name: decrypted_pwd.decode()}
+            
+        except InvalidToken as e:
+            pwd_data[data.password_id] = {data.service_name: "Error decrypting"}
+
+    return render_template("home.html", username=current_user.username, pwd_datas=pwd_data, objects=objects)
 
 
 @app.route('/login', methods=["POST", "GET"])
@@ -95,7 +122,7 @@ def logout():
     return redirect(url_for("login"))
 
 
-@app.route("/create", methods=["POST, GET"])
+@app.route("/create", methods=["POST", "GET"])
 @login_required
 def create():
     if request.method == "POST":
@@ -113,8 +140,52 @@ def create():
         except SQLAlchemyError as e:
             db.session.rollback()
             return "Unexpected error", 500
-        
+    return render_template("create.html")
 
+        
+@app.route('/update', methods=["POST", "GET"])
+@login_required
+def update():
+    if request.method == "POST":
+        pwd_id = request.form.get("password_id")
+        service_name = request.form.get("service_name")
+        password = request.form.get("password")
+
+        pwd_record = Password.query.filter_by(password_id=pwd_id).first()
+        
+        if pwd_record:
+            pwd_record.service_name = service_name
+            enc_pwd = fernet.encrypt(password.encode())
+            pwd_record.encrypted_password = enc_pwd
+            db.session.commit()
+            return redirect(url_for("home"))
+        else:
+            return render_template("error.html")
+    
+    pwd_id = request.args.get("password_id")
+    pwd_record = Password.query.filter_by(password_id=pwd_id).first()
+    if pwd_record:
+        try:
+            dec_pwd = fernet.decrypt(pwd_record.encrypted_password).decode()
+        except Exception as e:
+            dec_pwd = ''
+            return render_template("error.html")
+
+        return render_template("update.html", password_id = pwd_id, password=dec_pwd, service_name=pwd_record.service_name)
+    else:
+        return render_template("error.html")
+
+@app.route('/delete', methods=["POST"])
+@login_required
+def delete():
+    pwd_id = request.form.get("password_id")
+    pwd_object = Password.query.filter_by(password_id=pwd_id).first()
+
+    if pwd_object:
+        db.session.delete(pwd_object)
+        db.session.commit()
+        return redirect(url_for("home"))
+    return render_template("error.html")
 
 if __name__ == "__main__":
     with app.app_context():
