@@ -22,7 +22,7 @@ This is a Web-based password manager application that allows users to securely s
 - cryptography
 - Jinja2
 - Tailwind CSS
-- 
+
 ##  Setup Instructions
 #### clone the Repository
 ```
