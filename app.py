@@ -5,13 +5,22 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 from sqlalchemy.exc import SQLAlchemyError
 from cryptography.fernet import Fernet, InvalidToken
 from flask_migrate import Migrate
+from dotenv import load_dotenv
 import os
 
+load_dotenv()
+secret_key = os.getenv("SECRET_KEY")
+database_url = os.getenv("DATABASE_URL")
+
+# Ensure critical environment variables are set
+if not secret_key:
+    raise ValueError("No SECRET_KEY set for Flask application. Did you forget to set the environment variable?")
+if not database_url:
+    raise ValueError("No DATABASE_URL set for Flask application. Did you forget to set the environment variable?")
+
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "admin@123"
-app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "postgresql://mazin:123@localhost:5432/pswd_mngr"
-)
+app.config["SECRET_KEY"] = secret_key
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 migrate = Migrate(app, db)
