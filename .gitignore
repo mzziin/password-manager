@@ -1,3 +1,9 @@
-env
+#virtual environment
+env/
+
+#Environment variables
 secret.key
 .env
+
+# Byte-compiled 
+__pycache__/
