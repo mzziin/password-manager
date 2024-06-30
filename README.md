@@ -42,7 +42,7 @@ pip install -r requirements.txt
  Create a .env file in the root directory of the project and add the following environment variables:
 ```
 SECRET_KEY=your_secret_key
-SQLALCHEMY_DATABASE_URI=postgresql://username:password@localhost:5432/db_name
+DATABASE_URL=postgresql://username:password@localhost:5432/db_name
 ```
 #### Database Migration
 ```
