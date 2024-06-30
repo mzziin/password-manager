@@ -58,5 +58,5 @@ python3 manage.py
 ## Contributing
 
 Contributions are always welcome!
-Contributions are welcome! Please create an issue or pull request with any improvements.
+Please create an issue or pull request with any improvements.
 
