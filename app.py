@@ -90,7 +90,7 @@ def login():
             login_user(user)
             return redirect(url_for("home"))
         else:
-            return "Invalid username or password", 401
+            return render_template("error.html",code=401, message="Invalid username or password")
 
     return render_template("login.html")
 
@@ -104,14 +104,14 @@ def register():
         confirm_pass = request.form.get("confirm_pass")
 
         if not (username and email and password and confirm_pass):
-            return "All fields are required", 400
+            return render_template("error.html",code=400, message="All fields are required")
 
         if password != confirm_pass:
-            return "Passwords do not match", 400
+            return render_template("error.html",code=400, message="Passwords do not match")
 
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
-            return "Username already exists", 400
+            return render_template("error.html",code=400, message="Username already exists")
 
         pw_hash = bcrypt.generate_password_hash(password).decode('utf-8')
         try:
@@ -121,7 +121,7 @@ def register():
             return redirect(url_for("login"))
         except SQLAlchemyError as e:
             db.session.rollback()
-            return "Unexpected error", 500
+            return render_template("error.html", code=500, message="Unexpected error occurred")
 
     return render_template("register.html")
 
@@ -149,7 +149,7 @@ def create():
             return redirect(url_for("home"))
         except SQLAlchemyError as e:
             db.session.rollback()
-            return "Unexpected error", 500
+            return render_template("error.html", code=500, message="Unexpected error occurred")
     return render_template("create.html")
 
         
@@ -170,7 +170,7 @@ def update():
             db.session.commit()
             return redirect(url_for("home"))
         else:
-            return render_template("error.html")
+            return render_template("error.html", code=500, message="Unexpected error occurred")
     
     pwd_id = request.args.get("password_id")
     pwd_record = Password.query.filter_by(password_id=pwd_id).first()
@@ -179,11 +179,11 @@ def update():
             dec_pwd = fernet.decrypt(pwd_record.encrypted_password).decode()
         except Exception as e:
             dec_pwd = ''
-            return render_template("error.html")
+            return render_template("error.html", code=500, message="Unexpected error occurred")
 
         return render_template("update.html", password_id = pwd_id, password=dec_pwd, service_name=pwd_record.service_name)
     else:
-        return render_template("error.html")
+        return render_template("error.html", code=500, message="Unexpected error occurred")
 
 @app.route('/delete', methods=["POST"])
 @login_required
@@ -195,7 +195,7 @@ def delete():
         db.session.delete(pwd_object)
         db.session.commit()
         return redirect(url_for("home"))
-    return render_template("error.html")
+    return render_template("error.html", code=500, message="Unexpected error occurred")
 
 if __name__ == "__main__":
     with app.app_context():
