@@ -3,6 +3,7 @@
 
 This is a Web-based password manager application that allows users to securely store, manage, and retrieve passwords for different services.
 
+#### Video Demo: https://youtu.be/tJ3EE8K11SA?si=PCqLaHhetd8Ri4z8
 
 ## Features
 
